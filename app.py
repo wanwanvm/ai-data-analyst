@@ -9,26 +9,24 @@ from google import genai
 st.set_page_config(page_title="Kemenpora AI Data Analyst", layout="wide")
 st.title("🏆 Kemenpora AI Data Analyst & Auto-Graph Engine")
 
-# Inisialisasi Gemini Client menggunakan API Key dari Secrets
+# Inisialisasi Gemini Client dengan API Key dari Streamlit Secrets
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
-# ID Google Sheet Katalog Utama Anda
+# ID Google Sheet Utama (Katalog)
 MASTER_SHEET_ID = "1bG7oISmSd5af9FXXBJ_XyfAfxXKv_u7iR88AYIh_qsM"
 MASTER_CSV_URL = f"https://docs.google.com/spreadsheets/d/{MASTER_SHEET_ID}/export?format=csv&gid=0"
 
 @st.cache_data(ttl=60)
 def load_master_catalog():
-    # Header penyamaran browser untuk mengunduh Katalog dari Google Sheets
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
     }
     response = requests.get(MASTER_CSV_URL, headers=headers, timeout=15)
     response.raise_for_status()
     
-    # Membaca isi CSV dari Google Sheet
     df = pd.read_csv(io.StringIO(response.text))
     
-    # Membersihkan nama kolom dan isi sel dari karakter tersembunyi (\xa0 / non-breaking space)
+    # Membersihkan karakter tersembunyi (\xa0 / non-breaking space)
     df.columns = df.columns.astype(str).str.replace('\xa0', ' ').str.strip()
     for col in df.columns:
         if df[col].dtype == 'object':
@@ -41,7 +39,7 @@ try:
     df_master = load_master_catalog()
     df_master = df_master.dropna(how='all')
     
-    # Cari nama kolom secara fleksibel (mencari kolom yang memuat kata dataset/nama dan url/excel)
+    # Deteksi otomatis nama kolom untuk Dataset dan URL
     col_dataset = [c for c in df_master.columns if "dataset" in c.lower() or "nama" in c.lower()][0]
     col_url = [c for c in df_master.columns if "url" in c.lower() or "excel" in c.lower()][0]
     
@@ -61,11 +59,9 @@ try:
         }
         res = requests.get(url, headers=headers, timeout=20)
         res.raise_for_status()
-        
-        # Mengubah data mentah byte menjadi dataframe pandas lewat openpyxl
         return pd.read_excel(io.BytesIO(res.content), engine='openpyxl')
         
-    with st.spinner(f"Mengunduh file Excel dari Kemenpora..."):
+    with st.spinner("Mengunduh file Excel dari Kemenpora..."):
         df = load_excel_from_url(excel_url)
     
     # Tampilkan Preview Data
@@ -89,18 +85,15 @@ try:
         Perintah/Pertanyaan Pengguna: {user_prompt}
         Tugas: Berikan analisis ringkas, temuan utama, dan rekomendasi keputusan strategis.
         """
-# Ganti dengan baris baru menggunakan model yang stabil
-with st.spinner("AI sedang menganalisis data..."):
-    # Gunakan model gemini-1.5-flash atau gemini-2.0-flash (jika sudah tersedia di API)
-    response = client.models.generate_content(
-        model='gemini-1.5-flash', # <-- PERUBAHAN PENTING
-        contents=prompt_analisis,
-    )
-    st.subheader("💡 Keputusan & Analisis AI:")
-    st.write(response.text)
-
-
         
+        with st.spinner("AI sedang membaca file Excel Kemenpora & menganalisis..."):
+            response = client.models.generate_content(
+                model='gemini-2.0-flash',
+                contents=prompt_analisis,
+            )
+            st.subheader("💡 Keputusan & Analisis AI:")
+            st.write(response.text)
+
         # 5. Fitur Visualisasi Otomatis
         keywords_grafik = ["grafik", "diagram", "chart", "plot", "visualisasi", "buatkan"]
         if any(word in user_prompt.lower() for word in keywords_grafik):
