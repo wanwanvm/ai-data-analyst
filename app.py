@@ -9,23 +9,27 @@ from google import genai
 st.set_page_config(page_title="Kemenpora AI Data Analyst", layout="wide")
 st.title("🏆 Kemenpora AI Data Analyst & Auto-Graph Engine")
 
-# Inisialisasi Gemini Client dengan API Key dari Secrets
+# Inisialisasi Gemini Client menggunakan API Key dari Secrets
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
-# ID Google Sheet Utama Anda
+# ID Google Sheet Katalog Utama Anda
 MASTER_SHEET_ID = "1bG7oISmSd5af9FXXBJ_XyfAfxXKv_u7iR88AYIh_qsM"
-# Mengarahkan langsung ke Sheet1 (gid=0)
 MASTER_CSV_URL = f"https://docs.google.com/spreadsheets/d/{MASTER_SHEET_ID}/export?format=csv&gid=0"
 
 @st.cache_data(ttl=60)
 def load_master_catalog():
-    # Membaca CSV dari Google Sheet
-    df = pd.read_csv(MASTER_CSV_URL)
+    # Header penyamaran browser untuk mengunduh Katalog dari Google Sheets
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+    }
+    response = requests.get(MASTER_CSV_URL, headers=headers, timeout=15)
+    response.raise_for_status()
     
-    # MEMBERSIHKAN KARAKTER TERSEMBUNYI (\xa0 dan spasi berlebih)
+    # Membaca isi CSV dari Google Sheet
+    df = pd.read_csv(io.StringIO(response.text))
+    
+    # Membersihkan nama kolom dan isi sel dari karakter tersembunyi (\xa0 / non-breaking space)
     df.columns = df.columns.astype(str).str.replace('\xa0', ' ').str.strip()
-    
-    # Bersihkan isi sel dari karakter \xa0
     for col in df.columns:
         if df[col].dtype == 'object':
             df[col] = df[col].astype(str).str.replace('\xa0', ' ').str.strip()
@@ -33,46 +37,38 @@ def load_master_catalog():
     return df
 
 try:
-    # 1. Membaca Katalog Google Sheet1
+    # 1. Membaca Katalog Google Sheet
     df_master = load_master_catalog()
-    
-    # Hapus baris yang kosong sepenuhnya
     df_master = df_master.dropna(how='all')
     
-    # Deteksi Otomatis Kolom 'Nama Dataset' dan 'URL'
+    # Cari nama kolom secara fleksibel (mencari kolom yang memuat kata dataset/nama dan url/excel)
     col_dataset = [c for c in df_master.columns if "dataset" in c.lower() or "nama" in c.lower()][0]
     col_url = [c for c in df_master.columns if "url" in c.lower() or "excel" in c.lower()][0]
     
-    # 2. Dropdown Pilihan Dataset dari Sheet1
-    list_dataset = df_master[col_dataset].unique().tolist()
-    # Buang nilai 'nan' jika ada
-    list_dataset = [d for d in list_dataset if d.lower() != 'nan' and d != '']
+    # 2. Pilihan Dataset di Dropdown
+    list_dataset = [d for d in df_master[col_dataset].unique().tolist() if str(d).lower() != 'nan' and str(d).strip() != '']
+    pilihan_dataset = st.selectbox("📁 Pilih Dataset Kemenpora (Sheet1):", list_dataset)
     
-    pilihan_dataset = st.selectbox("📁 Pilih Dataset Kemenpora (dari Sheet1):", list_dataset)
-    
-    # Ambil URL Excel berdasarkan Pilihan
+    # Ambil URL Excel Kemenpora yang dipilih
     excel_url = df_master.loc[df_master[col_dataset] == pilihan_dataset, col_url].values[0]
     
-    # 3. Fungsi Membaca File Excel dari Server Kemenpora
+    # 3. Fungsi membaca langsung file Excel dari URL Kemenpora dengan Penyamaran Browser
     @st.cache_data(ttl=300)
     def load_excel_from_url(url):
-        # Header User-Agent Browser Lengkap agar tidak diblokir (401/403) oleh Kemenpora
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         }
+        res = requests.get(url, headers=headers, timeout=20)
+        res.raise_for_status()
         
-        # Download file excel sebagai byte stream
-        response = requests.get(url, headers=headers, timeout=15)
-        response.raise_for_status() # Lempar error jika status bukan 200
+        # Mengubah data mentah byte menjadi dataframe pandas lewat openpyxl
+        return pd.read_excel(io.BytesIO(res.content), engine='openpyxl')
         
-        # Baca byte stream menggunakan openpyxl via io.BytesIO
-        return pd.read_excel(io.BytesIO(response.content), engine='openpyxl')
-        
-    # Load data Excel terpilih
-    with st.spinner("Mengunduh file Excel dari Kemenpora..."):
+    with st.spinner(f"Mengunduh file Excel dari Kemenpora..."):
         df = load_excel_from_url(excel_url)
     
+    # Tampilkan Preview Data
     with st.expander(f"📊 Preview Data: {pilihan_dataset}", expanded=True):
         st.dataframe(df, use_container_width=True)
 
@@ -83,7 +79,6 @@ try:
     )
 
     if user_prompt:
-        # Prompt untuk Analisis Keputusan
         prompt_analisis = f"""
         Kamu adalah Data Analyst Senior di bidang Olahraga & Pemerintahan.
         Dataset Terpilih: {pilihan_dataset}
@@ -123,6 +118,6 @@ try:
                 st.info("Data ini tidak memiliki kombinasi kolom numerik dan teks yang sesuai untuk grafik otomatis secara instan.")
 
 except requests.exceptions.HTTPError as http_err:
-    st.error(f"Gagal mengunduh file dari Kemenpora. Server menolak akses (HTTP Error). Detail: {http_err}")
+    st.error(f"Gagal mengunduh data. Terjadi kesalahan HTTP: {http_err}. Pastikan akses Google Sheet diset 'Anyone with the link' (Public).")
 except Exception as e:
     st.error(f"Gagal memuat data. Detail Error: {e}")
