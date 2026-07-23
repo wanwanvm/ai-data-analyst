@@ -3,4 +3,4 @@ pandas
 google-genai
 plotly
 openpyxl
-gdown
+requests
