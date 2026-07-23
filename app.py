@@ -89,15 +89,18 @@ try:
         Perintah/Pertanyaan Pengguna: {user_prompt}
         Tugas: Berikan analisis ringkas, temuan utama, dan rekomendasi keputusan strategis.
         """
-        
-        with st.spinner("AI sedang membaca file Excel Kemenpora & menganalisis..."):
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=prompt_analisis,
-            )
-            st.subheader("💡 Keputusan & Analisis AI:")
-            st.write(response.text)
+# Ganti dengan baris baru menggunakan model yang stabil
+with st.spinner("AI sedang menganalisis data..."):
+    # Gunakan model gemini-1.5-flash atau gemini-2.0-flash (jika sudah tersedia di API)
+    response = client.models.generate_content(
+        model='gemini-1.5-flash', # <-- PERUBAHAN PENTING
+        contents=prompt_analisis,
+    )
+    st.subheader("💡 Keputusan & Analisis AI:")
+    st.write(response.text)
 
+
+        
         # 5. Fitur Visualisasi Otomatis
         keywords_grafik = ["grafik", "diagram", "chart", "plot", "visualisasi", "buatkan"]
         if any(word in user_prompt.lower() for word in keywords_grafik):
