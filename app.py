@@ -9,7 +9,7 @@ st.title("🤖 AI Analyst (Direct Excel Reader)")
 client = genai.Client(api_key=st.secrets["GEMINI_API_KEY"])
 
 # 1. Master Google Sheet (Berisi katalog link download file Excel)
-MASTER_SHEET_ID = "ID_MASTER_GOOGLE_SHEET_ANDA"
+MASTER_SHEET_ID = "1bG7oISmSd5af9FXXBJ_XyfAfxXKv_u7iR88AYIh_qsM"
 MASTER_CSV_URL = f"https://docs.google.com/spreadsheets/d/{MASTER_SHEET_ID}/export?format=csv"
 
 @st.cache_data(ttl=60)
