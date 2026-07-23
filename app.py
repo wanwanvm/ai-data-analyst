@@ -7,7 +7,9 @@ st.set_page_config(page_title="Kemenpora AI Data Analyst", layout="wide")
 st.title("🏆 Kemenpora AI Data Analyst & Auto-Graph Engine")
 
 # Inisialisasi Gemini Client dengan API Key dari Streamlit Secrets
+# Ganti baris lama yang error dengan baris baru ini
 client = genai.Client(api_key=st.secrets["AQ.Ab8RN6JKBoAZZtiYP0tMSCFJWMMmnqbn2og5stIoUhAx4LABpQ"])
+#client = genai.Client(api_key=st.secrets["AQ.Ab8RN6JKBoAZZtiYP0tMSCFJWMMmnqbn2og5stIoUhAx4LABpQ"])
 
 # 1. ID Google Sheet Utama yang berisi daftar katalog di atas
 MASTER_SHEET_ID = "1bG7oISmSd5af9FXXBJ_XyfAfxXKv_u7iR88AYIh_qsM"
